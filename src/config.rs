@@ -2,14 +2,33 @@ use std::error;
 
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
+macro_rules! config_defaults {
+    ($($name:ident -> $type:ty: $value:expr;)*) => {
+    $(
+        fn $name() -> $type {
+            $value
+        }
+    )*
+    }
+}
+
+config_defaults! {
+    default_general_prefix -> String: "regite".to_string();
+    default_general_graphite_address -> String: "localhost:2003".to_string();
+}
+
+#[derive(Debug, Default, Deserialize)]
 pub struct Config {
     pub general: General,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct General {
+    #[serde(default = "default_general_prefix")]
+    pub prefix: String,
     pub hostname: String,
+    #[serde(default = "default_general_graphite_address")]
+    pub graphite_address: String,
 }
 
 pub fn load_config(file_path: &str) -> Result<Config, Box<dyn error::Error>> {

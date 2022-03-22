@@ -4,6 +4,7 @@ use structopt::StructOpt;
 
 mod config;
 mod executor;
+mod metric;
 
 #[derive(Debug, StructOpt)]
 #[structopt(
