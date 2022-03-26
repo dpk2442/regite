@@ -50,11 +50,12 @@ where
         if let Some(exit_notifier) = &self.exit_notifier {
             exit_notifier.send(()).expect("Couldn't notify thread");
             self.exit_notifier = None;
+        }
+    }
 
-            std::mem::take(&mut self.join_handle)
-                .expect("Join handle not set")
-                .join()
-                .expect("Couldn't join thread");
+    pub fn join(&mut self) {
+        if let Some(join_handle) = std::mem::take(&mut self.join_handle) {
+            join_handle.join().expect("Couldn't join thread");
         }
     }
 }
@@ -79,6 +80,7 @@ mod test {
         runner.start();
         thread::sleep(Duration::from_millis(5));
         runner.stop();
+        runner.join();
 
         assert_eq!(5, run_count.load(Ordering::SeqCst));
     }
@@ -95,6 +97,7 @@ mod test {
         runner.start();
         thread::sleep(Duration::from_millis(5));
         runner.stop();
+        runner.join();
 
         assert_eq!(2, run_count.load(Ordering::SeqCst));
     }
