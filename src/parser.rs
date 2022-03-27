@@ -11,7 +11,7 @@ pub struct Parser {
 }
 
 impl Parser {
-    fn new(prefix: &str, regex: &str, outputs: &[Output]) -> Parser {
+    pub fn new(prefix: &str, regex: &str, outputs: &[Output]) -> Parser {
         Parser {
             prefix: prefix.to_owned(),
             regex: Regex::new(&format!("(?m){}", regex)).unwrap(),
@@ -19,20 +19,23 @@ impl Parser {
         }
     }
 
-    fn parse(&self, input: &str) -> Vec<String> {
+    pub fn parse(&self, input: &str) -> Vec<(String, String)> {
         let mut results = vec![];
 
         for mat in self.regex.find_iter(input) {
             for output in &self.outputs {
                 let substring = mat.as_str();
-                results.push(format!(
-                    "{}.{} {}",
-                    self.prefix,
-                    self.regex.replace(substring, &output.name),
-                    self.regex.replace(substring, &output.value),
+                results.push((
+                    format!(
+                        "{}.{}",
+                        self.prefix,
+                        self.regex.replace(substring, &output.name)
+                    ),
+                    self.regex.replace(substring, &output.value).to_string(),
                 ));
             }
         }
+
         results
     }
 }
@@ -52,7 +55,10 @@ mod test {
             }],
         );
 
-        assert_eq!(parser.parse("input"), ["prefix.name input"]);
+        assert_eq!(
+            parser.parse("input"),
+            [("prefix.name".to_string(), "input".to_string())]
+        );
     }
 
     #[test]
@@ -72,7 +78,13 @@ mod test {
             ],
         );
 
-        assert_eq!(parser.parse("1;2"), ["prefix.left 1", "prefix.right 2"]);
+        assert_eq!(
+            parser.parse("1;2"),
+            [
+                ("prefix.left".to_string(), "1".to_string()),
+                ("prefix.right".to_string(), "2".to_string())
+            ]
+        );
     }
 
     #[test]
@@ -88,7 +100,10 @@ mod test {
 
         assert_eq!(
             parser.parse("line1\nline2"),
-            ["prefix.line line1", "prefix.line line2"]
+            [
+                ("prefix.line".to_string(), "line1".to_string()),
+                ("prefix.line".to_string(), "line2".to_string())
+            ]
         );
     }
 
@@ -112,10 +127,10 @@ mod test {
         assert_eq!(
             parser.parse("line1 1;2\nline2 4;3"),
             [
-                "prefix.line1.left 1",
-                "prefix.line1.right 2",
-                "prefix.line2.left 4",
-                "prefix.line2.right 3"
+                ("prefix.line1.left".to_string(), "1".to_string()),
+                ("prefix.line1.right".to_string(), "2".to_string()),
+                ("prefix.line2.left".to_string(), "4".to_string()),
+                ("prefix.line2.right".to_string(), "3".to_string())
             ]
         );
     }
