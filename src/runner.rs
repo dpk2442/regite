@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::sync::mpsc::{channel, Sender};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
@@ -46,6 +44,7 @@ where
         }));
     }
 
+    #[allow(dead_code)]
     pub fn stop(&mut self) {
         if let Some(exit_notifier) = &self.exit_notifier {
             exit_notifier.send(()).expect("Couldn't notify thread");

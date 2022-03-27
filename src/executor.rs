@@ -55,7 +55,6 @@ where
     }
 }
 
-#[allow(dead_code)]
 pub fn build() -> Box<dyn Executor> {
     Box::new(ExecutorImpl {
         execute_fn: |cmd: &str, args: &[String]| process::Command::new(cmd).args(args).output(),

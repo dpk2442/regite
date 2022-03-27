@@ -45,7 +45,6 @@ impl MetricReporter for MetricReporterImpl {
     }
 }
 
-#[allow(dead_code)]
 pub fn build(config: &config::General) -> Box<dyn MetricReporter> {
     let socket = net::UdpSocket::bind("[::]:0").expect("Unable to bind to ephemeral port");
     let address = config.graphite_address.clone();

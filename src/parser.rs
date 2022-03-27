@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::config::Output;
 
 use regex::Regex;
