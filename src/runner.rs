@@ -2,14 +2,21 @@ use std::sync::mpsc::{channel, Sender};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
+enum RunnerState<F>
+where
+    F: Fn() + Send + 'static,
+{
+    Unknown,
+    Pending(Duration, F),
+    Running(JoinHandle<()>, Sender<()>),
+    Stopped,
+}
+
 pub struct Runner<F>
 where
     F: Fn() + Send + 'static,
 {
-    interval: Duration,
-    run_fn: Option<F>,
-    join_handle: Option<JoinHandle<()>>,
-    exit_notifier: Option<Sender<()>>,
+    state: RunnerState<F>,
 }
 
 impl<F> Runner<F>
@@ -18,19 +25,18 @@ where
 {
     pub fn new(interval: Duration, run_fn: F) -> Runner<F> {
         Runner {
-            interval,
-            run_fn: Some(run_fn),
-            join_handle: None,
-            exit_notifier: None,
+            state: RunnerState::Pending(interval, run_fn),
         }
     }
 
     pub fn start(&mut self) {
+        let (interval, run_fn) = match std::mem::replace(&mut self.state, RunnerState::Unknown) {
+            RunnerState::Pending(interval, run_fn) => (interval, run_fn),
+            _ => panic!("A runner can only be started once"),
+        };
+
         let (tx, rx) = channel();
-        let interval = self.interval;
-        let run_fn = std::mem::take(&mut self.run_fn).expect("Cannot start the runner twice");
-        self.exit_notifier = Some(tx);
-        self.join_handle = Some(thread::spawn(move || loop {
+        let join_handle = thread::spawn(move || loop {
             let start_time = Instant::now();
             run_fn();
 
@@ -41,21 +47,28 @@ where
             if rx.recv_timeout(interval - elapsed).is_ok() {
                 break;
             }
-        }));
+        });
+
+        self.state = RunnerState::Running(join_handle, tx);
     }
 
     #[allow(dead_code)]
     pub fn stop(&mut self) {
-        if let Some(exit_notifier) = &self.exit_notifier {
-            exit_notifier.send(()).expect("Couldn't notify thread");
-            self.exit_notifier = None;
-        }
+        let exit_notifier = match &self.state {
+            RunnerState::Running(_, exit_notifier) => exit_notifier,
+            _ => panic!("A runner can only be stopped while running"),
+        };
+
+        exit_notifier.send(()).expect("Couldn't notify thread");
     }
 
     pub fn join(&mut self) {
-        if let Some(join_handle) = std::mem::take(&mut self.join_handle) {
-            join_handle.join().expect("Couldn't join thread");
-        }
+        let join_handle = match std::mem::replace(&mut self.state, RunnerState::Unknown) {
+            RunnerState::Running(join_handle, _) => join_handle,
+            _ => panic!("A runner can only be joined while running"),
+        };
+        join_handle.join().expect("Couldn't join thread");
+        self.state = RunnerState::Stopped;
     }
 }
 
@@ -99,5 +112,54 @@ mod test {
         runner.join();
 
         assert_eq!(2, run_count.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    #[should_panic(expected = "A runner can only be started once")]
+    fn test_cannot_start_twice() {
+        let mut runner = Runner::new(Duration::from_millis(1), || {});
+
+        runner.start();
+        runner.start();
+    }
+
+    #[test]
+    #[should_panic(expected = "A runner can only be stopped while running")]
+    fn test_cannot_stop_before_start() {
+        let mut runner = Runner::new(Duration::from_millis(1), || {});
+
+        runner.stop();
+    }
+
+    #[test]
+    #[should_panic(expected = "A runner can only be joined while running")]
+    fn test_cannot_join_before_start() {
+        let mut runner = Runner::new(Duration::from_millis(1), || {});
+
+        runner.join();
+    }
+
+    #[test]
+    #[should_panic(expected = "A runner can only be joined while running")]
+    fn test_cannot_join_twice() {
+        let mut runner = Runner::new(Duration::from_millis(1), || {});
+
+        runner.start();
+        runner.stop();
+        runner.join();
+        runner.join();
+    }
+
+    #[test]
+    fn test_state_should_not_be_unknown() {
+        let mut runner = Runner::new(Duration::from_millis(1), || {});
+
+        assert!(!matches!(runner.state, RunnerState::Unknown));
+        runner.start();
+        assert!(!matches!(runner.state, RunnerState::Unknown));
+        runner.stop();
+        assert!(!matches!(runner.state, RunnerState::Unknown));
+        runner.join();
+        assert!(!matches!(runner.state, RunnerState::Unknown));
     }
 }
