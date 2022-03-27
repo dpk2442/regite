@@ -20,20 +20,20 @@ impl std::fmt::Display for ExecutorError {
 
 impl std::error::Error for ExecutorError {}
 
-pub trait Executor {
+pub trait Executor: Send {
     fn execute(&self, command: &str) -> Result<String, ExecutorError>;
 }
 
 struct ExecutorImpl<F>
 where
-    F: Fn(&str, &[String]) -> io::Result<process::Output>,
+    F: Fn(&str, &[String]) -> io::Result<process::Output> + Send,
 {
     execute_fn: F,
 }
 
 impl<F> Executor for ExecutorImpl<F>
 where
-    F: Fn(&str, &[String]) -> io::Result<process::Output>,
+    F: Fn(&str, &[String]) -> io::Result<process::Output> + Send,
 {
     fn execute(&self, command: &str) -> Result<String, ExecutorError> {
         let parts = match shlex::split(command) {

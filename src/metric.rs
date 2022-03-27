@@ -22,20 +22,21 @@ impl std::fmt::Display for MetricReporterError {
 
 impl std::error::Error for MetricReporterError {}
 
-pub trait MetricReporter {
+pub trait MetricReporter: Send {
     fn report(&self, name: &str, value: &str, timestamp: i64) -> Result<(), MetricReporterError>;
 }
 
 struct MetricReporterImpl {
-    config: config::General,
-    send_fn: Box<dyn Fn(&str) -> io::Result<()>>,
+    prefix: String,
+    hostname: String,
+    send_fn: Box<dyn Fn(&str) -> io::Result<()> + Send>,
 }
 
 impl MetricReporter for MetricReporterImpl {
     fn report(&self, name: &str, value: &str, timestamp: i64) -> Result<(), MetricReporterError> {
         let metric = format!(
-            "{}.{}.{} {} {}",
-            self.config.prefix, self.config.hostname, name, value, timestamp
+            "{}.{}.{} {} {}\n",
+            self.prefix, self.hostname, name, value, timestamp
         );
         match (self.send_fn)(&metric) {
             Ok(()) => Ok(()),
@@ -45,11 +46,12 @@ impl MetricReporter for MetricReporterImpl {
 }
 
 #[allow(dead_code)]
-pub fn build(config: config::General) -> Box<dyn MetricReporter> {
+pub fn build(config: &config::General) -> Box<dyn MetricReporter> {
     let socket = net::UdpSocket::bind("[::]:0").expect("Unable to bind to ephemeral port");
     let address = config.graphite_address.clone();
     Box::new(MetricReporterImpl {
-        config,
+        prefix: config.prefix.to_string(),
+        hostname: config.hostname.to_string(),
         send_fn: Box::new(move |s| socket.send_to(s.as_bytes(), &address).and(Ok(()))),
     })
 }
@@ -61,11 +63,8 @@ mod test {
     #[test]
     fn test_formats() {
         let reporter = MetricReporterImpl {
-            config: config::General {
-                prefix: "prefix".to_string(),
-                hostname: "hostname".to_string(),
-                graphite_address: "localhost:2003".to_string(),
-            },
+            prefix: "prefix".to_string(),
+            hostname: "hostname".to_string(),
             send_fn: Box::new(|s| {
                 assert_eq!("prefix.hostname.name value 123", s);
                 Ok(())
@@ -78,9 +77,8 @@ mod test {
     #[test]
     fn test_io_error() {
         let reporter = MetricReporterImpl {
-            config: config::General {
-                ..Default::default()
-            },
+            prefix: "prefix".to_string(),
+            hostname: "hostname".to_string(),
             send_fn: Box::new(|_| Err(io::Error::from(io::ErrorKind::Unsupported))),
         };
 
