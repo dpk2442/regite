@@ -65,7 +65,7 @@ mod test {
             prefix: "prefix".to_string(),
             hostname: "hostname".to_string(),
             send_fn: Box::new(|s| {
-                assert_eq!("prefix.hostname.name value 123", s);
+                assert_eq!("prefix.hostname.name value 123\n", s);
                 Ok(())
             }),
         };
