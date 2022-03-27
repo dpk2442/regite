@@ -6,22 +6,22 @@ use std::time::{Duration, Instant};
 
 pub struct Runner<F>
 where
-    F: Fn() + Clone + Send + 'static,
+    F: Fn() + Send + 'static,
 {
     interval: Duration,
-    run_fn: F,
+    run_fn: Option<F>,
     join_handle: Option<JoinHandle<()>>,
     exit_notifier: Option<Sender<()>>,
 }
 
 impl<F> Runner<F>
 where
-    F: Fn() + Clone + Send + 'static,
+    F: Fn() + Send + 'static,
 {
     pub fn new(interval: Duration, run_fn: F) -> Runner<F> {
         Runner {
             interval,
-            run_fn,
+            run_fn: Some(run_fn),
             join_handle: None,
             exit_notifier: None,
         }
@@ -30,7 +30,7 @@ where
     pub fn start(&mut self) {
         let (tx, rx) = channel();
         let interval = self.interval;
-        let run_fn = self.run_fn.clone();
+        let run_fn = std::mem::take(&mut self.run_fn).expect("Cannot start the runner twice");
         self.exit_notifier = Some(tx);
         self.join_handle = Some(thread::spawn(move || loop {
             let start_time = Instant::now();
