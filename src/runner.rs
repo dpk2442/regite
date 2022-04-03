@@ -40,9 +40,8 @@ impl Runner {
             while elapsed > interval {
                 elapsed -= interval;
             }
-            match rx.recv_timeout(interval - elapsed) {
-                Ok(_) => break,
-                Err(e) => eprintln!("err: {:?}", e),
+            if rx.recv_timeout(interval - elapsed).is_ok() {
+                break;
             }
         });
 
