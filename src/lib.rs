@@ -1,6 +1,6 @@
 #![warn(clippy::all)]
 
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub mod config;
 mod executor;
@@ -25,6 +25,7 @@ impl Regite {
             runners.push(runner::Runner::new(
                 Duration::from_secs(job.interval),
                 Box::new(move || {
+                    let start_time = SystemTime::now();
                     let output = match executor.execute(&command) {
                         Ok(output) => output,
                         Err(e) => {
@@ -33,8 +34,12 @@ impl Regite {
                         }
                     };
 
+                    let epoch_time = start_time
+                        .duration_since(UNIX_EPOCH)
+                        .expect("Time went backwards")
+                        .as_secs();
                     for (name, value) in parser.parse(&output) {
-                        if let Err(e) = metrics.report(&name, &value, 0) {
+                        if let Err(e) = metrics.report(&name, &value, epoch_time) {
                             eprintln!("Error: {:?}", e);
                         }
                     }

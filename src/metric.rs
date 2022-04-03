@@ -23,7 +23,7 @@ impl std::fmt::Display for MetricReporterError {
 impl std::error::Error for MetricReporterError {}
 
 pub trait MetricReporter: Send {
-    fn report(&self, name: &str, value: &str, timestamp: i64) -> Result<(), MetricReporterError>;
+    fn report(&self, name: &str, value: &str, timestamp: u64) -> Result<(), MetricReporterError>;
 }
 
 struct MetricReporterImpl {
@@ -33,7 +33,7 @@ struct MetricReporterImpl {
 }
 
 impl MetricReporter for MetricReporterImpl {
-    fn report(&self, name: &str, value: &str, timestamp: i64) -> Result<(), MetricReporterError> {
+    fn report(&self, name: &str, value: &str, timestamp: u64) -> Result<(), MetricReporterError> {
         let metric = format!(
             "{}.{}.{} {} {}\n",
             self.prefix, self.hostname, name, value, timestamp
