@@ -79,52 +79,6 @@ impl Runner {
 mod test {
     use super::*;
 
-    use std::sync::{
-        atomic::{AtomicU32, Ordering},
-        Arc,
-    };
-
-    #[test]
-    fn test_fast_function() {
-        let run_count = Arc::new(AtomicU32::new(0));
-        let run_count_clone = run_count.clone();
-        let mut runner = Runner::new(
-            "name".to_string(),
-            Duration::from_millis(1),
-            Box::new(move || {
-                run_count_clone.fetch_add(1, Ordering::SeqCst);
-            }),
-        );
-
-        runner.start();
-        thread::sleep(Duration::from_millis(5));
-        runner.stop();
-        runner.join();
-
-        assert_eq!(5, run_count.load(Ordering::SeqCst));
-    }
-
-    #[test]
-    fn test_overrun_function() {
-        let run_count = Arc::new(AtomicU32::new(0));
-        let run_count_clone = run_count.clone();
-        let mut runner = Runner::new(
-            "name".to_string(),
-            Duration::from_millis(2),
-            Box::new(move || {
-                run_count_clone.fetch_add(1, Ordering::SeqCst);
-                thread::sleep(Duration::from_millis(3));
-            }),
-        );
-
-        runner.start();
-        thread::sleep(Duration::from_millis(5));
-        runner.stop();
-        runner.join();
-
-        assert_eq!(2, run_count.load(Ordering::SeqCst));
-    }
-
     #[test]
     #[should_panic(expected = "A runner can only be started once")]
     fn test_cannot_start_twice() {
