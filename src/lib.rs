@@ -24,6 +24,7 @@ impl Regite {
             let parser = parser::Parser::new(&prefix, &job.regex, &job.output);
             let metrics = metric::build(&config.general);
             runners.push(runner::Runner::new(
+                job.name.clone(),
                 Duration::from_secs(job.interval),
                 Box::new(move || {
                     let start_time = SystemTime::now();

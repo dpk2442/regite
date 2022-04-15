@@ -9,7 +9,7 @@ struct RunningState {
 
 enum RunnerState {
     Unknown,
-    Pending(Duration, Box<dyn Fn() + Send + 'static>),
+    Pending(String, Duration, Box<dyn Fn() + Send + 'static>),
     Running(RunningState),
     Stopped,
 }
@@ -19,31 +19,35 @@ pub struct Runner {
 }
 
 impl Runner {
-    pub fn new(interval: Duration, run_fn: Box<dyn Fn() + Send + 'static>) -> Runner {
+    pub fn new(name: String, interval: Duration, run_fn: Box<dyn Fn() + Send + 'static>) -> Runner {
         Runner {
-            state: RunnerState::Pending(interval, run_fn),
+            state: RunnerState::Pending(name, interval, run_fn),
         }
     }
 
     pub fn start(&mut self) {
-        let (interval, run_fn) = match std::mem::replace(&mut self.state, RunnerState::Unknown) {
-            RunnerState::Pending(interval, run_fn) => (interval, run_fn),
-            _ => panic!("A runner can only be started once"),
-        };
+        let (name, interval, run_fn) =
+            match std::mem::replace(&mut self.state, RunnerState::Unknown) {
+                RunnerState::Pending(name, interval, run_fn) => (name, interval, run_fn),
+                _ => panic!("A runner can only be started once"),
+            };
 
         let (tx, rx) = channel();
-        let join_handle = thread::spawn(move || loop {
-            let start_time = Instant::now();
-            run_fn();
+        let join_handle = thread::Builder::new()
+            .name(name)
+            .spawn(move || loop {
+                let start_time = Instant::now();
+                run_fn();
 
-            let mut elapsed = start_time.elapsed();
-            while elapsed > interval {
-                elapsed -= interval;
-            }
-            if rx.recv_timeout(interval - elapsed).is_ok() {
-                break;
-            }
-        });
+                let mut elapsed = start_time.elapsed();
+                while elapsed > interval {
+                    elapsed -= interval;
+                }
+                if rx.recv_timeout(interval - elapsed).is_ok() {
+                    break;
+                }
+            })
+            .expect("Couldn't spawn thread");
 
         self.state = RunnerState::Running(RunningState {
             join_handle: Some(join_handle),
@@ -51,7 +55,6 @@ impl Runner {
         });
     }
 
-    #[allow(dead_code)]
     pub fn stop(&self) {
         let exit_notifier = match &self.state {
             RunnerState::Running(running_state) => &running_state.exit_notifier,
@@ -86,6 +89,7 @@ mod test {
         let run_count = Arc::new(AtomicU32::new(0));
         let run_count_clone = run_count.clone();
         let mut runner = Runner::new(
+            "name".to_string(),
             Duration::from_millis(1),
             Box::new(move || {
                 run_count_clone.fetch_add(1, Ordering::SeqCst);
@@ -105,6 +109,7 @@ mod test {
         let run_count = Arc::new(AtomicU32::new(0));
         let run_count_clone = run_count.clone();
         let mut runner = Runner::new(
+            "name".to_string(),
             Duration::from_millis(2),
             Box::new(move || {
                 run_count_clone.fetch_add(1, Ordering::SeqCst);
@@ -123,7 +128,11 @@ mod test {
     #[test]
     #[should_panic(expected = "A runner can only be started once")]
     fn test_cannot_start_twice() {
-        let mut runner = Runner::new(Duration::from_millis(1), Box::new(|| {}));
+        let mut runner = Runner::new(
+            "name".to_string(),
+            Duration::from_millis(1),
+            Box::new(|| {}),
+        );
 
         runner.start();
         runner.start();
@@ -132,7 +141,11 @@ mod test {
     #[test]
     #[should_panic(expected = "A runner can only be stopped while running")]
     fn test_cannot_stop_before_start() {
-        let runner = Runner::new(Duration::from_millis(1), Box::new(|| {}));
+        let runner = Runner::new(
+            "name".to_string(),
+            Duration::from_millis(1),
+            Box::new(|| {}),
+        );
 
         runner.stop();
     }
@@ -140,7 +153,11 @@ mod test {
     #[test]
     #[should_panic(expected = "A runner can only be joined while running")]
     fn test_cannot_join_before_start() {
-        let mut runner = Runner::new(Duration::from_millis(1), Box::new(|| {}));
+        let mut runner = Runner::new(
+            "name".to_string(),
+            Duration::from_millis(1),
+            Box::new(|| {}),
+        );
 
         runner.join();
     }
@@ -148,7 +165,11 @@ mod test {
     #[test]
     #[should_panic(expected = "A runner can only be joined while running")]
     fn test_cannot_join_twice() {
-        let mut runner = Runner::new(Duration::from_millis(1), Box::new(|| {}));
+        let mut runner = Runner::new(
+            "name".to_string(),
+            Duration::from_millis(1),
+            Box::new(|| {}),
+        );
 
         runner.start();
         runner.stop();
@@ -158,7 +179,11 @@ mod test {
 
     #[test]
     fn test_state_should_not_be_unknown() {
-        let mut runner = Runner::new(Duration::from_millis(1), Box::new(|| {}));
+        let mut runner = Runner::new(
+            "name".to_string(),
+            Duration::from_millis(1),
+            Box::new(|| {}),
+        );
 
         assert!(!matches!(runner.state, RunnerState::Unknown));
         runner.start();

@@ -35,6 +35,7 @@ pub struct General {
 
 #[derive(Debug, Default, Deserialize)]
 pub struct Job {
+    pub name: String,
     pub interval: u64,
     pub command: String,
     pub regex: String,

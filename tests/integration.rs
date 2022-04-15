@@ -20,6 +20,7 @@ fn test_date() {
             graphite_address: socket.local_addr().unwrap().to_string(),
         },
         job: vec![Job {
+            name: "name".to_string(),
             interval: 1,
             command: "/usr/bin/date +%s".to_string(),
             regex: "(.+)".to_string(),
