@@ -27,11 +27,12 @@ impl Regite {
                 job.name.clone(),
                 Duration::from_secs(job.interval),
                 Box::new(move || {
+                    log::info!("Running task");
                     let start_time = SystemTime::now();
                     let output = match executor.execute(&command) {
                         Ok(output) => output,
                         Err(e) => {
-                            eprintln!("Error: {:?}", e);
+                            log::error!("Error: {:?}", e);
                             return;
                         }
                     };
@@ -42,9 +43,11 @@ impl Regite {
                         .as_secs();
                     for (name, value) in parser.parse(&output) {
                         if let Err(e) = metrics.report(&name, &value, epoch_time) {
-                            eprintln!("Error: {:?}", e);
+                            log::error!("Error: {:?}", e);
                         }
                     }
+
+                    log::info!("Finished running task");
                 }),
             ));
         }
