@@ -8,29 +8,27 @@ struct RunningState {
 }
 
 enum RunnerState {
-    Unknown,
     Pending(String, Duration, Box<dyn Fn() + Send + 'static>),
     Running(RunningState),
     Stopped,
 }
 
 pub struct Runner {
-    state: RunnerState,
+    state: Option<RunnerState>,
 }
 
 impl Runner {
     pub fn new(name: String, interval: Duration, run_fn: Box<dyn Fn() + Send + 'static>) -> Runner {
         Runner {
-            state: RunnerState::Pending(name, interval, run_fn),
+            state: Some(RunnerState::Pending(name, interval, run_fn)),
         }
     }
 
     pub fn start(&mut self) {
-        let (name, interval, run_fn) =
-            match std::mem::replace(&mut self.state, RunnerState::Unknown) {
-                RunnerState::Pending(name, interval, run_fn) => (name, interval, run_fn),
-                _ => panic!("A runner can only be started once"),
-            };
+        let (name, interval, run_fn) = match std::mem::take(&mut self.state) {
+            Some(RunnerState::Pending(name, interval, run_fn)) => (name, interval, run_fn),
+            _ => panic!("A runner can only be started once"),
+        };
 
         let (tx, rx) = channel();
         let join_handle = thread::Builder::new()
@@ -49,15 +47,15 @@ impl Runner {
             })
             .expect("Couldn't spawn thread");
 
-        self.state = RunnerState::Running(RunningState {
+        self.state = Some(RunnerState::Running(RunningState {
             join_handle: Some(join_handle),
             exit_notifier: tx,
-        });
+        }));
     }
 
     pub fn stop(&self) {
         let exit_notifier = match &self.state {
-            RunnerState::Running(running_state) => &running_state.exit_notifier,
+            Some(RunnerState::Running(running_state)) => &running_state.exit_notifier,
             _ => panic!("A runner can only be stopped while running"),
         };
 
@@ -66,12 +64,14 @@ impl Runner {
 
     pub fn join(&mut self) {
         let join_handle = match &mut self.state {
-            RunnerState::Running(running_state) => std::mem::take(&mut running_state.join_handle)
-                .expect("join_handle shouldn't be none"),
+            Some(RunnerState::Running(running_state)) => {
+                std::mem::take(&mut running_state.join_handle)
+                    .expect("join_handle shouldn't be none")
+            }
             _ => panic!("A runner can only be joined while running"),
         };
         join_handle.join().expect("Couldn't join thread");
-        self.state = RunnerState::Stopped;
+        self.state = Some(RunnerState::Stopped);
     }
 }
 
@@ -178,19 +178,19 @@ mod test {
     }
 
     #[test]
-    fn test_state_should_not_be_unknown() {
+    fn test_state_should_not_be_none() {
         let mut runner = Runner::new(
             "name".to_string(),
             Duration::from_millis(1),
             Box::new(|| {}),
         );
 
-        assert!(!matches!(runner.state, RunnerState::Unknown));
+        assert!(runner.state.is_some());
         runner.start();
-        assert!(!matches!(runner.state, RunnerState::Unknown));
+        assert!(runner.state.is_some());
         runner.stop();
-        assert!(!matches!(runner.state, RunnerState::Unknown));
+        assert!(runner.state.is_some());
         runner.join();
-        assert!(!matches!(runner.state, RunnerState::Unknown));
+        assert!(runner.state.is_some());
     }
 }
