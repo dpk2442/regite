@@ -21,11 +21,16 @@ struct Args {
 }
 
 fn main() {
+    regite::logging::init_logging();
+
     let args = Args::from_args();
+    log::info!("Loading config from {}", args.config);
     let config = regite::config::load_config(&args.config).unwrap();
 
+    log::info!("Starting background threads...");
     let mut regite = regite::Regite::new(config);
     regite.start();
+    log::info!("Background threads started");
 
     #[allow(clippy::mutex_atomic)]
     let condvar_pair = Arc::new((Mutex::new(true), Condvar::new()));
@@ -43,6 +48,8 @@ fn main() {
         .wait_while(lock.lock().unwrap(), |pending| *pending)
         .unwrap();
 
+    log::info!("Stopping background threads...");
     regite.stop();
     regite.join();
+    log::info!("Background threads stopped");
 }

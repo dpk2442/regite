@@ -4,6 +4,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub mod config;
 mod executor;
+pub mod logging;
 mod metric;
 mod parser;
 mod runner;

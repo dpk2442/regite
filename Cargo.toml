@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+chrono = "0.4.19"
 ctrlc = "3.2.1"
+log = { version = "0.4.16", features = ["std"] }
 regex = "1"
 serde = { version = "1.0.136", features = ["derive"] }
 shlex = "1.1.0"
