@@ -1,4 +1,4 @@
-use std::io;
+use std::io::{self, Write};
 use std::net;
 
 use crate::config;
@@ -41,10 +41,20 @@ impl MetricReporter for MetricReporterImpl {
 }
 
 pub fn build(config: &config::General) -> Box<dyn MetricReporter> {
-    let socket = net::UdpSocket::bind("[::]:0").expect("Unable to bind to ephemeral port");
     let address = config.graphite_address.clone();
     Box::new(MetricReporterImpl {
-        send_fn: Box::new(move |s| socket.send_to(s.as_bytes(), &address).and(Ok(()))),
+        send_fn: match config.graphite_connection_type {
+            config::GraphiteConnectionType::Udp => {
+                let socket =
+                    net::UdpSocket::bind("[::]:0").expect("Unable to bind to ephemeral port");
+                Box::new(move |s| socket.send_to(s.as_bytes(), &address).and(Ok(())))
+            }
+            config::GraphiteConnectionType::Tcp => Box::new(move |s| {
+                net::TcpStream::connect(&address)?
+                    .write(s.as_bytes())
+                    .and(Ok(()))
+            }),
+        },
     })
 }
 

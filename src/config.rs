@@ -14,6 +14,7 @@ macro_rules! config_defaults {
 
 config_defaults! {
     default_general_prefix -> String: "regite".to_string();
+    default_general_graphite_connection_type -> GraphiteConnectionType: GraphiteConnectionType::Tcp;
     default_general_graphite_address -> String: "localhost:2003".to_string();
 }
 
@@ -29,8 +30,22 @@ pub struct General {
     #[serde(default = "default_general_prefix")]
     pub prefix: String,
     pub hostname: String,
+    #[serde(default = "default_general_graphite_connection_type")]
+    pub graphite_connection_type: GraphiteConnectionType,
     #[serde(default = "default_general_graphite_address")]
     pub graphite_address: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub enum GraphiteConnectionType {
+    Tcp,
+    Udp,
+}
+
+impl Default for GraphiteConnectionType {
+    fn default() -> GraphiteConnectionType {
+        GraphiteConnectionType::Tcp
+    }
 }
 
 #[derive(Debug, Default, Deserialize)]
