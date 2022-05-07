@@ -61,7 +61,7 @@ fn test_date() {
         job: vec![Job {
             name: "name".to_string(),
             interval: 1,
-            command: "/usr/bin/date +%s".to_string(),
+            command: "/usr/bin/env date +%s".to_string(),
             regex: "(.+)".to_string(),
             output: vec![Output {
                 name: "date".to_string(),
@@ -176,6 +176,9 @@ fn test_long_job() {
 
     regite.stop();
     regite.join();
+
+    // ensure the final iteration has a chance to publish the UDP packet
+    thread::sleep(Duration::from_secs(1));
 
     // there should have been a third run in progress
     assert_eq!(3, counter.load(Ordering::SeqCst));
