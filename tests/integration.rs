@@ -212,6 +212,9 @@ fn test_long_job_tcp() {
     regite.stop();
     regite.join();
 
+    // ensure the final iteration has a chance to publish the TCP packet
+    thread::sleep(Duration::from_secs(1));
+
     // there should have been a third run in progress
     assert_eq!(3, counter.load(Ordering::SeqCst));
 }
