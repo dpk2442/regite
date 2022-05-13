@@ -35,13 +35,13 @@ jobs:
         run: cross build --verbose --release --target ${{ matrix.target }}
 
       - name: Copy release binary
-        run: cp target/${{ matrix.target }}/release/minecraft-compose ./minecraft-compose_${{ matrix.target }}
+        run: cp target/${{ matrix.target }}/release/regite ./regite_${{ matrix.target }}
 
       - name: Publish binary as artifact
         uses: actions/upload-artifact@v2
         with:
           name: releases
-          path: ./minecraft-compose_${{ matrix.target }}
+          path: ./regite_${{ matrix.target }}
 
   release:
     runs-on: ubuntu-latest
